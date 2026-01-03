@@ -59,9 +59,22 @@ export default function Index() {
   const [selectedGame, setSelectedGame] = useState<Game>('all');
   const [selectedCheat, setSelectedCheat] = useState<Cheat | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAddCheatOpen, setIsAddCheatOpen] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [cheats, setCheats] = useState<Cheat[]>(mockCheats);
+  
+  const [newCheat, setNewCheat] = useState({
+    name: '',
+    game: 'minecraft' as Game,
+    description: '',
+    uploader: '',
+    fileUrl: '',
+    fileType: 'url' as 'url' | 'file',
+    avatar: null as File | null,
+    screenshots: [] as File[]
+  });
 
   const games = [
     { id: 'all' as Game, name: 'Все игры', icon: 'Grid3x3' },
@@ -71,14 +84,54 @@ export default function Index() {
   ];
 
   const filteredCheats = selectedGame === 'all' 
-    ? mockCheats 
-    : mockCheats.filter(cheat => cheat.game === selectedGame);
+    ? cheats.filter(c => c.approved)
+    : cheats.filter(cheat => cheat.game === selectedGame && cheat.approved);
+
+  const pendingCheats = cheats.filter(c => !c.approved);
 
   const handleAdminLogin = () => {
     if (adminPassword === 'sexxxlop123') {
       setIsAuthenticated(true);
       setAdminPassword('');
     }
+  };
+
+  const handleAddCheat = () => {
+    const cheat: Cheat = {
+      id: Date.now(),
+      name: newCheat.name,
+      game: newCheat.game,
+      description: newCheat.description,
+      downloads: 0,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploader: newCheat.uploader,
+      images: [],
+      approved: false
+    };
+    setCheats([...cheats, cheat]);
+    setNewCheat({
+      name: '',
+      game: 'minecraft',
+      description: '',
+      uploader: '',
+      fileUrl: '',
+      fileType: 'url',
+      avatar: null,
+      screenshots: []
+    });
+    setIsAddCheatOpen(false);
+  };
+
+  const handleApproveCheat = (id: number) => {
+    setCheats(cheats.map(c => c.id === id ? { ...c, approved: true } : c));
+  };
+
+  const handleRejectCheat = (id: number) => {
+    setCheats(cheats.filter(c => c.id !== id));
+  };
+
+  const handleDeleteCheat = (id: number) => {
+    setCheats(cheats.filter(c => c.id !== id));
   };
 
   return (
@@ -180,6 +233,7 @@ export default function Index() {
           <Button 
             size="lg" 
             className="bg-gradient-to-r from-secondary to-accent text-white font-bold px-8 py-6 text-lg hover-scale"
+            onClick={() => setIsAddCheatOpen(true)}
           >
             <Icon name="Plus" className="mr-2" size={24} />
             Добавить свой чит
@@ -286,24 +340,179 @@ export default function Index() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-muted-foreground">Ожидающие модерации: 0</p>
-              <div className="space-y-2">
-                <Button variant="outline" className="w-full border-green-500 text-green-500">
-                  <Icon name="Check" className="mr-2" size={18} />
-                  Принять чит
-                </Button>
-                <Button variant="outline" className="w-full border-red-500 text-red-500">
-                  <Icon name="X" className="mr-2" size={18} />
-                  Отклонить чит
-                </Button>
-                <Button variant="outline" className="w-full border-destructive text-destructive">
+            <div className="space-y-4">
+              <p className="text-muted-foreground">Ожидающие модерации: {pendingCheats.length}</p>
+              
+              {pendingCheats.length > 0 ? (
+                <div className="max-h-96 overflow-y-auto space-y-3">
+                  {pendingCheats.map(cheat => (
+                    <Card key={cheat.id} className="p-4 bg-muted border-secondary/30">
+                      <div className="mb-3">
+                        <h4 className="font-bold text-foreground">{cheat.name}</h4>
+                        <p className="text-xs text-muted-foreground">{cheat.game.toUpperCase()} • {cheat.uploader}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                          onClick={() => handleApproveCheat(cheat.id)}
+                        >
+                          <Icon name="Check" size={16} />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                          onClick={() => handleRejectCheat(cheat.id)}
+                        >
+                          <Icon name="X" size={16} />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-4">Нет ожидающих читов</p>
+              )}
+              
+              <div className="pt-3 border-t border-secondary/30">
+                <p className="text-sm text-muted-foreground mb-2">Управление одобренными</p>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-destructive text-destructive"
+                  onClick={() => {
+                    const cheatId = prompt('Введите ID чита для удаления:');
+                    if (cheatId) handleDeleteCheat(Number(cheatId));
+                  }}
+                >
                   <Icon name="Trash2" className="mr-2" size={18} />
                   Удалить чит
                 </Button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddCheatOpen} onOpenChange={setIsAddCheatOpen}>
+        <DialogContent className="bg-card border-accent max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-accent">
+              Добавить чит
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-bold mb-2 block">Название чита</label>
+              <input
+                type="text"
+                placeholder="Например: SuperHack Pro"
+                value={newCheat.name}
+                onChange={(e) => setNewCheat({ ...newCheat, name: e.target.value })}
+                className="w-full px-4 py-2 bg-background border border-accent/50 rounded-md text-foreground focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Игра</label>
+              <select
+                value={newCheat.game}
+                onChange={(e) => setNewCheat({ ...newCheat, game: e.target.value as Game })}
+                className="w-full px-4 py-2 bg-background border border-accent/50 rounded-md text-foreground focus:border-accent focus:outline-none"
+              >
+                <option value="minecraft">Minecraft</option>
+                <option value="cs2">CS2</option>
+                <option value="roblox">Roblox</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Описание</label>
+              <textarea
+                placeholder="Опишите функции чита..."
+                value={newCheat.description}
+                onChange={(e) => setNewCheat({ ...newCheat, description: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 bg-background border border-accent/50 rounded-md text-foreground focus:border-accent focus:outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Ваш ник</label>
+              <input
+                type="text"
+                placeholder="Как вас называть?"
+                value={newCheat.uploader}
+                onChange={(e) => setNewCheat({ ...newCheat, uploader: e.target.value })}
+                className="w-full px-4 py-2 bg-background border border-accent/50 rounded-md text-foreground focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Способ загрузки</label>
+              <div className="flex gap-3 mb-3">
+                <Button
+                  type="button"
+                  variant={newCheat.fileType === 'url' ? 'default' : 'outline'}
+                  className={newCheat.fileType === 'url' ? 'bg-accent' : 'border-accent/50'}
+                  onClick={() => setNewCheat({ ...newCheat, fileType: 'url' })}
+                >
+                  <Icon name="Link" className="mr-2" size={18} />
+                  Ссылка
+                </Button>
+                <Button
+                  type="button"
+                  variant={newCheat.fileType === 'file' ? 'default' : 'outline'}
+                  className={newCheat.fileType === 'file' ? 'bg-accent' : 'border-accent/50'}
+                  onClick={() => setNewCheat({ ...newCheat, fileType: 'file' })}
+                >
+                  <Icon name="Upload" className="mr-2" size={18} />
+                  Файл (до 500 МБ)
+                </Button>
+              </div>
+
+              {newCheat.fileType === 'url' ? (
+                <input
+                  type="url"
+                  placeholder="https://example.com/cheat.zip"
+                  value={newCheat.fileUrl}
+                  onChange={(e) => setNewCheat({ ...newCheat, fileUrl: e.target.value })}
+                  className="w-full px-4 py-2 bg-background border border-accent/50 rounded-md text-foreground focus:border-accent focus:outline-none"
+                />
+              ) : (
+                <div className="border-2 border-dashed border-accent/50 rounded-md p-6 text-center hover:border-accent transition-colors cursor-pointer">
+                  <Icon name="Upload" size={40} className="mx-auto mb-2 text-accent" />
+                  <p className="text-sm text-muted-foreground">Нажмите для выбора файла</p>
+                  <p className="text-xs text-muted-foreground mt-1">Максимум 500 МБ</p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Аватарка чита (необязательно)</label>
+              <div className="border-2 border-dashed border-accent/30 rounded-md p-4 text-center hover:border-accent/50 transition-colors cursor-pointer">
+                <Icon name="Image" size={32} className="mx-auto mb-2 text-accent/60" />
+                <p className="text-xs text-muted-foreground">Загрузить изображение</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold mb-2 block">Скриншоты (необязательно)</label>
+              <div className="border-2 border-dashed border-accent/30 rounded-md p-4 text-center hover:border-accent/50 transition-colors cursor-pointer">
+                <Icon name="Images" size={32} className="mx-auto mb-2 text-accent/60" />
+                <p className="text-xs text-muted-foreground">Загрузить несколько изображений</p>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleAddCheat}
+              disabled={!newCheat.name || !newCheat.description || !newCheat.uploader}
+              className="w-full bg-gradient-to-r from-secondary to-accent text-white font-bold py-3 hover-scale disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon name="Send" className="mr-2" size={20} />
+              Отправить на модерацию
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
