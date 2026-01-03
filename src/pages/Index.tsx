@@ -60,10 +60,12 @@ export default function Index() {
   const [selectedCheat, setSelectedCheat] = useState<Cheat | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAddCheatOpen, setIsAddCheatOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cheats, setCheats] = useState<Cheat[]>(mockCheats);
+  const [configs, setConfigs] = useState<Array<{id: number, name: string, game: Game, data: string}>>([]);
   
   const [newCheat, setNewCheat] = useState({
     name: '',
@@ -134,6 +136,33 @@ export default function Index() {
     setCheats(cheats.filter(c => c.id !== id));
   };
 
+  const handleUploadConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const config = {
+          id: Date.now(),
+          name: file.name,
+          game: selectedGame === 'all' ? 'minecraft' : selectedGame,
+          data: event.target?.result as string
+        };
+        setConfigs([...configs, config]);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleDownloadConfig = (config: {id: number, name: string, data: string}) => {
+    const blob = new Blob([config.data], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = config.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-background/80">
       <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-accent animate-pulse-glow z-50" />
@@ -145,7 +174,11 @@ export default function Index() {
           </h1>
           
           <div className="flex gap-3">
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+            <Button 
+              variant="outline" 
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => setIsConfigOpen(true)}
+            >
               <Icon name="Download" className="mr-2" size={18} />
               Конфиги
             </Button>
@@ -512,6 +545,109 @@ export default function Index() {
               <Icon name="Send" className="mr-2" size={20} />
               Отправить на модерацию
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="bg-card border-primary max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-primary">
+              Конфиги
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept=".cfg,.ini,.txt,.json"
+                  onChange={handleUploadConfig}
+                  className="hidden"
+                  id="config-upload"
+                />
+                <Button 
+                  asChild
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <label htmlFor="config-upload" className="cursor-pointer flex items-center justify-center">
+                    <Icon name="Upload" className="mr-2" size={20} />
+                    Загрузить конфиг
+                  </label>
+                </Button>
+              </label>
+            </div>
+
+            <div className="border-t border-primary/20 pt-4">
+              <h3 className="font-bold mb-3">Мои конфиги ({configs.length})</h3>
+              
+              {configs.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {configs.map(config => (
+                    <Card key={config.id} className="p-4 bg-muted border-primary/30 hover:border-primary transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-foreground">{config.name}</h4>
+                          <p className="text-xs text-muted-foreground">{config.game.toUpperCase()}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => handleDownloadConfig(config)}
+                        >
+                          <Icon name="Download" size={16} />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Icon name="FileText" size={48} className="mx-auto mb-3 opacity-40" />
+                  <p>Нет сохраненных конфигов</p>
+                  <p className="text-xs mt-1">Загрузите конфиг для начала</p>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-primary/20 pt-4">
+              <h3 className="font-bold mb-3">Популярные конфиги</h3>
+              <div className="space-y-2">
+                <Card className="p-4 bg-muted border-primary/30 hover:border-primary transition-colors cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-foreground">Pro Config CS2</h4>
+                      <p className="text-xs text-muted-foreground">CS2 • 1.2k скачиваний</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    >
+                      <Icon name="Download" size={16} />
+                    </Button>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-muted border-primary/30 hover:border-primary transition-colors cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-foreground">OptiFine Settings</h4>
+                      <p className="text-xs text-muted-foreground">MINECRAFT • 856 скачиваний</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    >
+                      <Icon name="Download" size={16} />
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
